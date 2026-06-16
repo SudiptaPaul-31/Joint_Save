@@ -134,3 +134,45 @@ fn test_non_member_deposit_rejection() {
     client.deposit(&non_member);
 }
 
+#[test]
+#[should_panic(expected = "already deposited this round")]
+fn test_duplicate_deposit_rejection() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+
+    let treasury = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    token_client.mint(&member_a, &200i128);
+
+    // First deposit succeeds
+    client.deposit(&member_a);
+
+    // Second deposit should panic
+    client.deposit(&member_a);
+}
+
+
