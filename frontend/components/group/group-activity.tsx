@@ -3,8 +3,8 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowUpRight, ArrowDownLeft, UserPlus, Settings, Loader2, ExternalLink, RefreshCw } from "lucide-react"
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 
 interface Activity {
   id: string
@@ -16,55 +16,28 @@ interface Activity {
   tx_hash: string | null
 }
 
-export function GroupActivity({ groupId }: { groupId: string }) {
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+interface GroupActivityProps {
+  groupId: string
+  /** Contract address when known — used as the shared cache key */
+  contractAddress?: string
+}
 
-  useEffect(() => {
-    fetchActivities()
-    
-    // Refetch activities every 5 seconds
-    const interval = setInterval(() => {
-      fetchActivities(true)
-    }, 5000)
+export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) {
+  // All three sibling components (GroupDetails, GroupMembers, GroupActivity)
+  // share the SAME cache key, so only 1 RPC call fires regardless of which
+  // component mounts first. The setInterval polling is now centralised in
+  // PoolDataProvider — no duplicate loops needed here.
+  const cacheKey =
+    contractAddress && contractAddress !== "pending_deployment"
+      ? contractAddress
+      : groupId
 
-    return () => clearInterval(interval)
-  }, [groupId])
+  const { data, isLoading, refetch } = usePoolData(cacheKey)
 
-  const fetchActivities = async (isAutoRefresh: boolean = false) => {
-    try {
-      if (isAutoRefresh) {
-        setRefreshing(true)
-      } else {
-        setLoading(true)
-      }
-
-      const response = await fetch(`/api/pools?id=${groupId}`)
-      const pool = await response.json()
-
-      console.log('Pool data received:', pool)
-      console.log('Pool activities:', pool.pool_activity)
-
-      if (pool.pool_activity && Array.isArray(pool.pool_activity)) {
-        console.log(`Found ${pool.pool_activity.length} activities for pool ${groupId}`)
-        setActivities(pool.pool_activity)
-      } else {
-        console.log('No activities found for pool', groupId)
-        setActivities([])
-      }
-    } catch (err) {
-      console.error('Failed to fetch activities:', err)
-      setActivities([])
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
-  const handleManualRefresh = () => {
-    fetchActivities()
-  }
+  const activities: Activity[] = (data?.db?.pool_activity ?? []).sort(
+    (a: Activity, b: Activity) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
 
   const formatAddress = (address: string | null) => {
     if (!address) return "System"
@@ -74,20 +47,12 @@ export function GroupActivity({ groupId }: { groupId: string }) {
   const formatTime = (dateString: string) => {
     try {
       const date = new Date(dateString)
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return "Invalid date"
-      }
-      
+      if (isNaN(date.getTime())) return "Invalid date"
+
       const now = new Date()
       const diffMs = now.getTime() - date.getTime()
-      
-      // Handle negative differences (future dates)
-      if (diffMs < 0) {
-        return "Just now"
-      }
-      
+      if (diffMs < 0) return "Just now"
+
       const diffMins = Math.floor(diffMs / 60000)
       const diffHours = Math.floor(diffMins / 60)
       const diffDays = Math.floor(diffHours / 24)
@@ -96,15 +61,15 @@ export function GroupActivity({ groupId }: { groupId: string }) {
       if (diffMins < 60) return `${diffMins}m ago`
       if (diffHours < 24) return `${diffHours}h ago`
       if (diffDays < 7) return `${diffDays}d ago`
-      
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       })
-    } catch (err) {
+    } catch {
       return "Unknown date"
     }
   }
@@ -114,7 +79,7 @@ export function GroupActivity({ groupId }: { groupId: string }) {
     return `https://stellar.expert/explorer/testnet/tx/${txHash}`
   }
 
-  if (loading) {
+  if (isLoading && activities.length === 0) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center py-8">
@@ -128,14 +93,16 @@ export function GroupActivity({ groupId }: { groupId: string }) {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Recent Activity</h3>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleManualRefresh}
-          disabled={refreshing}
+        {/* Refresh delegates to the provider's centralised refetch — no
+            local interval or independent fetch logic required. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={refetch}
+          disabled={isLoading}
           className="h-8 w-8 p-0"
         >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
@@ -147,17 +114,21 @@ export function GroupActivity({ groupId }: { groupId: string }) {
             <div key={activity.id} className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0">
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 ${
-                  activity.activity_type === "deposit" ? "bg-primary/10" : activity.activity_type === "payout" ? "bg-accent/10" : "bg-muted"
+                  activity.activity_type === "deposit"
+                    ? "bg-primary/10"
+                    : activity.activity_type === "payout"
+                    ? "bg-accent/10"
+                    : "bg-muted"
                 }`}
               >
                 {activity.activity_type === "deposit" && <ArrowUpRight className="h-5 w-5 text-primary" />}
                 {activity.activity_type === "payout" && <ArrowDownLeft className="h-5 w-5 text-accent" />}
                 {activity.activity_type === "member_joined" && <UserPlus className="h-5 w-5 text-muted-foreground" />}
-                {activity.activity_type === "pool_created" && <Settings className="h-5 w-5 text-muted-foreground" />}
-                {!["deposit", "payout", "member_joined", "pool_created"].includes(activity.activity_type) && (
+                {!["deposit", "payout", "member_joined"].includes(activity.activity_type) && (
                   <Settings className="h-5 w-5 text-muted-foreground" />
                 )}
               </div>
+
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-medium text-sm capitalize">
@@ -165,9 +136,12 @@ export function GroupActivity({ groupId }: { groupId: string }) {
                     {activity.activity_type === "payout" && "Payout"}
                     {activity.activity_type === "member_joined" && "Member Joined"}
                     {activity.activity_type === "pool_created" && "Pool Created"}
-                    {!["deposit", "payout", "member_joined", "pool_created"].includes(activity.activity_type) && activity.activity_type}
+                    {!["deposit", "payout", "member_joined", "pool_created"].includes(activity.activity_type) &&
+                      activity.activity_type}
                   </p>
-                  {activity.amount && <Badge variant="secondary">{activity.amount.toFixed(2)} XLM</Badge>}
+                  {activity.amount && (
+                    <Badge variant="secondary">{activity.amount.toFixed(2)} XLM</Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {formatAddress(activity.user_address)} • {formatTime(activity.created_at)}

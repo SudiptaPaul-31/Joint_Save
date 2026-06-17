@@ -2,46 +2,40 @@
 
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Clock, XCircle, Loader2 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 
 interface Member {
   id: string
   member_address: string
   contribution_amount: number
-  status: 'pending' | 'paid' | 'late'
+  status: "pending" | "paid" | "late"
   joined_at: string
 }
 
-export function GroupMembers({ groupId }: { groupId: string }) {
-  const [members, setMembers] = useState<Member[]>([])
-  const [loading, setLoading] = useState(true)
+interface GroupMembersProps {
+  groupId: string
+  /** Contract address when known — used as the cache key for deployed pools */
+  contractAddress?: string
+}
 
-  useEffect(() => {
-    fetchMembers()
-  }, [groupId])
+export function GroupMembers({ groupId, contractAddress }: GroupMembersProps) {
+  // Prefer contract address as the cache key (already warming from GroupDetails
+  // and GroupActivity on the same page). Fall back to DB id for pending pools.
+  const cacheKey =
+    contractAddress && contractAddress !== "pending_deployment"
+      ? contractAddress
+      : groupId
 
-  const fetchMembers = async () => {
-    try {
-      const response = await fetch(`/api/pools?id=${groupId}`)
-      const pool = await response.json()
+  const { data, isLoading } = usePoolData(cacheKey)
 
-      if (pool.pool_members) {
-        setMembers(pool.pool_members)
-      }
-    } catch (err) {
-      console.error('Failed to fetch members:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Members come from the DB document that the provider already fetched
+  const members: Member[] = data?.db?.pool_members ?? []
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
-  }
+  const formatAddress = (address: string) =>
+    `${address.slice(0, 6)}...${address.slice(-4)}`
 
-  if (loading) {
+  if (isLoading && members.length === 0) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center py-8">

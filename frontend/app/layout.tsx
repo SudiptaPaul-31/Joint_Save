@@ -6,6 +6,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Web3Provider } from "@/components/web3-provider"
+import { PoolDataProvider } from "@/lib/data-layer/PoolDataProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Suspense } from "react"
 
@@ -41,7 +42,9 @@ export default function RootLayout({
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <Suspense fallback={null}>
-            <Web3Provider>{children}</Web3Provider>
+            <Web3Provider>
+              <PoolDataProvider>{children}</PoolDataProvider>
+            </Web3Provider>
           </Suspense>
         </ThemeProvider>
         <Analytics />

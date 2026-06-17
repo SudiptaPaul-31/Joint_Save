@@ -6,100 +6,76 @@ import { Progress } from "@/components/ui/progress"
 import { Calendar, TrendingUp, Users, Clock, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
-import { useState, useEffect, useCallback } from "react"
 import {
-  fetchRotationalState, fetchTargetState, fetchFlexibleState,
-  stroopsToXlm, RotationalPoolState, TargetPoolState, FlexiblePoolState,
+  stroopsToXlm,
+  RotationalPoolState,
+  TargetPoolState,
+  FlexiblePoolState,
 } from "@/hooks/useJointSaveContracts"
-import { useStellar } from "@/components/web3-provider"
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 
-interface GroupData {
-  id: string; name: string; type: "rotational" | "target" | "flexible"
-  status: "active" | "completed" | "paused"; description: string | null
-  total_saved: number; target_amount: number | null; progress: number
-  members_count: number; next_payout: string | null; next_recipient: string | null
-  created_at: string; contribution_amount: number | null; frequency: string | null
-  deadline: string | null; contract_address: string
+interface GroupDetailsProps {
+  groupId: string
+  /** Contract address if already known — avoids a redundant /api/pools fetch */
+  contractAddress?: string
 }
 
-export function GroupDetails({ groupId }: { groupId: string }) {
-  const { address } = useStellar()
-  const [group, setGroup] = useState<GroupData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [onchainState, setOnchainState] = useState<RotationalPoolState | TargetPoolState | FlexiblePoolState | null>(null)
-  const [onchainLoading, setOnchainLoading] = useState(false)
+export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
+  // Use contract address as cache key when available; otherwise key on DB id.
+  // The provider resolves DB data first, so the DB id key works fine too.
+  const cacheKey =
+    contractAddress && contractAddress !== "pending_deployment"
+      ? contractAddress
+      : groupId
+
+  const { data, isLoading, isStale, error, refetch } = usePoolData(cacheKey)
+
+  const group = data?.db ?? null
+  const onchainState = data?.onchain ?? null
 
   const isPending = (addr: string) => !addr || addr === "pending_deployment"
-
-  const fetchGroupData = useCallback(async () => {
-    try {
-      setLoading(true); setError("")
-      const res = await fetch(`/api/pools?id=${groupId}`)
-      if (!res.ok) throw new Error("Failed to fetch group")
-      const data = await res.json()
-      setGroup(data)
-    } catch (err: any) {
-      setError(err.message || "Failed to load group")
-    } finally {
-      setLoading(false)
-    }
-  }, [groupId])
-
-  const fetchOnchainData = useCallback(async (g: GroupData) => {
-    if (isPending(g.contract_address)) return
-    setOnchainLoading(true)
-    try {
-      if (g.type === "rotational") {
-        setOnchainState(await fetchRotationalState(g.contract_address))
-      } else if (g.type === "target") {
-        setOnchainState(await fetchTargetState(g.contract_address, address || undefined))
-      } else {
-        setOnchainState(await fetchFlexibleState(g.contract_address, address || undefined))
-      }
-    } catch {}
-    finally { setOnchainLoading(false) }
-  }, [address])
-
-  useEffect(() => { fetchGroupData() }, [fetchGroupData])
-  useEffect(() => { if (group) fetchOnchainData(group) }, [group, fetchOnchainData])
-
-  if (loading) return (
-    <Card className="p-12"><div className="flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Card>
-  )
-  if (error || !group) return (
-    <Card className="p-6 bg-destructive/10 text-destructive"><p>{error || "Group not found"}</p></Card>
-  )
-
   const formatType = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
-  // Prefer live onchain data over DB data
+  if (isLoading && !group) {
+    return (
+      <Card className="p-12">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Card>
+    )
+  }
+
+  if (error || !group) {
+    return (
+      <Card className="p-6 bg-destructive/10 text-destructive">
+        <p>{error || "Group not found"}</p>
+      </Card>
+    )
+  }
+
+  // ── Live stats (prefer onchain data over DB) ────────────────────────────────
   const getLiveStats = () => {
-    const base = [
-      { icon: Users, label: "Members", value: group.members_count || 0 },
-    ]
+    const base = [{ icon: Users, label: "Members", value: group.members_count || 0 }]
 
     if (group.type === "rotational" && onchainState) {
       const s = onchainState as RotationalPoolState
-      const nextPayout = s.nextPayoutTime > 0
-        ? new Date(s.nextPayoutTime * 1000).toLocaleDateString()
-        : "N/A"
+      const nextPayout =
+        s.nextPayoutTime > 0
+          ? new Date(s.nextPayoutTime * 1000).toLocaleDateString()
+          : "N/A"
       base.unshift({ icon: TrendingUp, label: "Round", value: `${s.currentRound + 1} / ${s.members.length || group.members_count}` })
       base.push({ icon: Clock, label: "Next Payout", value: nextPayout })
       base.push({ icon: Calendar, label: "Frequency", value: group.frequency || "N/A" })
     } else if (group.type === "target" && onchainState) {
       const s = onchainState as TargetPoolState
-      const totalXlm = stroopsToXlm(s.totalDeposited)
-      const targetXlm = stroopsToXlm(s.targetAmount)
-      base.unshift({ icon: TrendingUp, label: "Total Saved", value: `${totalXlm.toFixed(2)} XLM` })
-      base.push({ icon: Calendar, label: "Target", value: `${targetXlm.toFixed(2)} XLM` })
+      base.unshift({ icon: TrendingUp, label: "Total Saved", value: `${stroopsToXlm(s.totalDeposited).toFixed(2)} XLM` })
+      base.push({ icon: Calendar, label: "Target", value: `${stroopsToXlm(s.targetAmount).toFixed(2)} XLM` })
       base.push({ icon: Clock, label: "Deadline", value: group.deadline ? new Date(group.deadline).toLocaleDateString() : "N/A" })
     } else if (group.type === "flexible" && onchainState) {
       const s = onchainState as FlexiblePoolState
-      const totalXlm = stroopsToXlm(s.totalBalance)
-      const userXlm = stroopsToXlm(s.userBalance)
-      base.unshift({ icon: TrendingUp, label: "Total Balance", value: `${totalXlm.toFixed(2)} XLM` })
-      base.push({ icon: Clock, label: "Your Balance", value: `${userXlm.toFixed(2)} XLM` })
+      base.unshift({ icon: TrendingUp, label: "Total Balance", value: `${stroopsToXlm(s.totalBalance).toFixed(2)} XLM` })
+      base.push({ icon: Clock, label: "Your Balance", value: `${stroopsToXlm(s.userBalance).toFixed(2)} XLM` })
       base.push({ icon: Calendar, label: "Status", value: s.isActive ? "Active" : "Inactive" })
     } else {
       // Fallback to DB data
@@ -118,7 +94,6 @@ export function GroupDetails({ groupId }: { groupId: string }) {
     return base
   }
 
-  // Progress for target pool
   const getProgress = () => {
     if (group.type === "target" && onchainState) {
       const s = onchainState as TargetPoolState
@@ -150,10 +125,16 @@ export function GroupDetails({ groupId }: { groupId: string }) {
               <Badge variant="secondary">{formatType(group.type)}</Badge>
               <Badge className="bg-primary/10 text-primary hover:bg-primary/20">{group.status}</Badge>
               {onchainState && <Badge variant="outline" className="text-xs">Live onchain</Badge>}
+              {isStale && !isLoading && (
+                <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40">
+                  Stale
+                </Badge>
+              )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => group && fetchOnchainData(group)} disabled={onchainLoading}>
-            <RefreshCw className={`h-4 w-4 ${onchainLoading ? "animate-spin" : ""}`} />
+          {/* Manual refresh binds to provider refetch — no local state needed */}
+          <Button variant="ghost" size="icon" onClick={refetch} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
         </div>
 
