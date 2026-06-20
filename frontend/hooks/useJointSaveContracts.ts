@@ -22,6 +22,9 @@ import {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID!
+// Optional — the reputation system is additive, so an unconfigured tracker
+// degrades to default scores instead of breaking pool creation/use.
+const REPUTATION_ID = process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID || ""
 const XLM_STROOPS = 10_000_000
 // 5 minutes — enough time for the user to review and sign in their wallet
 const TX_TIMEOUT = 300
@@ -351,6 +354,40 @@ export function useRegisterPool(poolType: "rotational" | "target" | "flexible") 
   return { register, isLoading }
 }
 
+// ── Reputation tracker wiring ─────────────────────────────────────────────────
+
+/** Point a freshly created pool at the shared ReputationTracker contract. */
+export function useSetReputationTracker() {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setTracker = async (contractId: string): Promise<string | undefined> => {
+    if (!kit || !address || !contractId || !REPUTATION_ID) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "set_reputation_tracker",
+            addressVal(address),
+            addressVal(REPUTATION_ID)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setTracker, isLoading }
+}
+
 // ── Rotational Pool actions ───────────────────────────────────────────────────
 
 export function useRotationalDeposit(contractId: string) {
@@ -564,6 +601,20 @@ export interface FlexiblePoolState {
   userBalance: bigint
 }
 
+export interface ReputationScore {
+  totalDeposits: bigint
+  poolsCompleted: number
+  missedRounds: number
+  onTimeRate: number // basis points: 10000 = 100%
+}
+
+const DEFAULT_REPUTATION: ReputationScore = {
+  totalDeposits: 0n,
+  poolsCompleted: 0,
+  missedRounds: 0,
+  onTimeRate: 10000,
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function stroopsToXlm(stroops: bigint): number {
@@ -639,6 +690,18 @@ function scValToString(val: xdr.ScVal): string {
     return Address.fromScVal(val).toString()
   }
   return ""
+}
+
+function scValToU32(val?: xdr.ScVal): number {
+  return val && val.switch().name === "scvU32" ? val.u32() : 0
+}
+
+/** Soroban structs serialize as an ScMap keyed by field name (Symbol). */
+function structField(val: xdr.ScVal, field: string): xdr.ScVal | undefined {
+  return val
+    .map()
+    ?.find((entry) => entry.key().sym().toString() === field)
+    ?.val()
 }
 
 // ── Read-only state fetchers ──────────────────────────────────────────────────
@@ -922,4 +985,20 @@ export function useUnpausePool(contractId: string) {
   }
 
   return { unpause, isLoading }
+}
+
+/** Read-only, no fees, no signing — safe to call for any address at any time. */
+export async function fetchReputation(address: string): Promise<ReputationScore> {
+  if (!REPUTATION_ID) return DEFAULT_REPUTATION
+  try {
+    const val = await viewCall(REPUTATION_ID, "get_reputation", addressVal(address))
+    return {
+      totalDeposits: scValToBigInt(structField(val, "total_deposits")!),
+      poolsCompleted: scValToU32(structField(val, "pools_completed")),
+      missedRounds: scValToU32(structField(val, "missed_rounds")),
+      onTimeRate: scValToU32(structField(val, "on_time_rate")),
+    }
+  } catch {
+    return DEFAULT_REPUTATION
+  }
 }
