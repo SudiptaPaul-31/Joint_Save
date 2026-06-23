@@ -3,10 +3,14 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { useStellar } from "@/components/web3-provider"
-import { Wallet, Award, TrendingUp, Users } from "lucide-react"
+import { Wallet, Award, TrendingUp, Users, Bell, Mail, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import { useUserProfile } from "@/hooks/useUserProfile"
 import {
   fetchTargetState,
   fetchFlexibleState,
@@ -88,10 +92,40 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
   }
 }
 
+const PREF_LABELS: Record<string, string> = {
+  email_on_payout:  "Payout received",
+  email_on_deposit: "Member deposited",
+  email_on_round:   "Round advanced",
+  email_on_target:  "Target reached",
+}
+
 export function Profile() {
   const { address } = useStellar()
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const { profile, saving, saveProfile } = useUserProfile(address)
+  const [emailDraft, setEmailDraft] = useState("")
+  const [emailSaved, setEmailSaved] = useState(false)
+
+  // Sync draft when profile loads
+  useEffect(() => {
+    if (profile?.email != null) setEmailDraft(profile.email)
+  }, [profile?.email])
+
+  const handleSaveEmail = async () => {
+    const trimmed = emailDraft.trim()
+    await saveProfile({ email: trimmed || null })
+    setEmailSaved(true)
+    setTimeout(() => setEmailSaved(false), 2500)
+  }
+
+  const handleTogglePref = (key: string, value: boolean) => {
+    if (!profile) return
+    saveProfile({
+      notification_preferences: { ...profile.notification_preferences, [key]: value },
+    })
+  }
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
@@ -240,6 +274,75 @@ export function Profile() {
               <p className="text-2xl font-bold mt-1">{stats?.onChain.missedRounds ?? 0}</p>
             </div>
           </div>
+        )}
+      </Card>
+
+      {/* ── Email address ──────────────────────────────────────────────── */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Mail className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Email Address</h3>
+            <p className="text-sm text-muted-foreground">Receive pool event notifications by email</p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <Input
+            type="email"
+            placeholder="you@example.com"
+            value={emailDraft}
+            onChange={(e) => setEmailDraft(e.target.value)}
+            className="flex-1"
+          />
+          <Button onClick={handleSaveEmail} disabled={saving}>
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : emailSaved ? (
+              "Saved!"
+            ) : (
+              "Save"
+            )}
+          </Button>
+        </div>
+        {!profile?.email && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Add an email to receive notifications. Your address is never shared.
+          </p>
+        )}
+      </Card>
+
+      {/* ── Notification preferences ───────────────────────────────────── */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Bell className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Notifications</h3>
+            <p className="text-sm text-muted-foreground">Choose which events send you an email</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {Object.entries(PREF_LABELS).map(([key, label]) => (
+            <div key={key} className="flex items-center justify-between">
+              <span className="text-sm">{label}</span>
+              <Switch
+                checked={profile?.notification_preferences?.[key as keyof typeof profile.notification_preferences] ?? true}
+                onCheckedChange={(val) => handleTogglePref(key, val)}
+                disabled={saving || !profile}
+              />
+            </div>
+          ))}
+        </div>
+
+        {!profile?.email && (
+          <p className="mt-4 text-xs text-muted-foreground border-t border-border pt-4">
+            Add an email above to receive these notifications.
+          </p>
         )}
       </Card>
 

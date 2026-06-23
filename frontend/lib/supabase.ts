@@ -197,6 +197,65 @@ export type Database = {
           last_calculated_at?: string
         }
       }
+      user_profiles: {
+        Row: {
+          wallet_address: string
+          email: string | null
+          notification_preferences: {
+            email_on_payout: boolean
+            email_on_deposit: boolean
+            email_on_round: boolean
+            email_on_target: boolean
+          }
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          wallet_address: string
+          email?: string | null
+          notification_preferences?: {
+            email_on_payout?: boolean
+            email_on_deposit?: boolean
+            email_on_round?: boolean
+            email_on_target?: boolean
+          }
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string | null
+          notification_preferences?: {
+            email_on_payout?: boolean
+            email_on_deposit?: boolean
+            email_on_round?: boolean
+            email_on_target?: boolean
+          }
+          updated_at?: string
+        }
+      }
+      notifications: {
+        Row: {
+          id: string
+          wallet_address: string
+          pool_id: string | null
+          activity_type: string
+          message: string
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          wallet_address: string
+          pool_id?: string | null
+          activity_type: string
+          message: string
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          read?: boolean
+        }
+      }
     }
   }
 }
