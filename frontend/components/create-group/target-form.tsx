@@ -9,7 +9,8 @@ import { Plus, X, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import { useDeployPool, useInitializePool, useRegisterPool, getRpc, resolveTokenAddress } from "@/hooks/useJointSaveContracts"
-import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select"
+import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select";
+import BulkImport from "@/components/create-group/BulkImport";
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { FieldError } from "@/components/ui/form"
 import { FormProgress, type ProgressField } from "@/components/ui/form-progress"
@@ -228,7 +229,9 @@ export function TargetForm() {
         />
       </div>
 
-      <TokenSelect onChange={setToken} />
+       <TokenSelect onChange={setToken} />
+       {/* Bulk Import Component */}
+       <BulkImport onMembersChange={setMembers} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">

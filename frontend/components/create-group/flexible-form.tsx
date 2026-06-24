@@ -223,6 +223,8 @@ export function FlexibleForm() {
       </div>
 
       <TokenSelect onChange={setToken} />
+      {/* Bulk Import Component */}
+      <BulkImport onMembersChange={setMembers} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">

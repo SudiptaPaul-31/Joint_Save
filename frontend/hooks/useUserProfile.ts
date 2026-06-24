@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 
+const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
+
 export interface NotificationPreferences {
   email_on_payout: boolean
   email_on_deposit: boolean
   email_on_round: boolean
   email_on_target: boolean
+  email_on_deposit_reminder: boolean
 }
 
 export interface UserProfile {
@@ -21,6 +24,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
   email_on_deposit: true,
   email_on_round: true,
   email_on_target: true,
+  email_on_deposit_reminder: true,
 }
 
 export function useUserProfile(walletAddress: string | null) {
@@ -29,7 +33,18 @@ export function useUserProfile(walletAddress: string | null) {
   const [saving, setSaving] = useState(false)
 
   const fetchProfile = useCallback(async () => {
-    if (!walletAddress) { setProfile(null); return }
+    if (!walletAddress || IS_E2E) {
+      setProfile(
+        walletAddress
+          ? {
+              wallet_address: walletAddress.toLowerCase(),
+              email: null,
+              notification_preferences: DEFAULT_PREFS,
+            }
+          : null
+      )
+      return
+    }
     setLoading(true)
     const { data } = await supabase
       .from("user_profiles")
@@ -51,6 +66,10 @@ export function useUserProfile(walletAddress: string | null) {
   const saveProfile = useCallback(
     async (updates: Partial<Pick<UserProfile, "email" | "notification_preferences">>) => {
       if (!walletAddress) return
+      if (IS_E2E) {
+        setProfile((prev) => (prev ? { ...prev, ...updates } : null))
+        return
+      }
       setSaving(true)
       await supabase.from("user_profiles").upsert(
         {

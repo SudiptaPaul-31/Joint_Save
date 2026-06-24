@@ -53,8 +53,8 @@ export function DashboardHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="flex h-16 items-center justify-between gap-2">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
               <Image
                 src="/joint-save.jpg"
@@ -64,13 +64,16 @@ export function DashboardHeader() {
                 className="object-cover"
               />
             </div>
-            <span className="text-xl font-bold">JointSave</span>
+            <span className="hidden text-xl font-bold sm:inline">JointSave</span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="text-xs text-muted-foreground hidden md:block">
               Press <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">?</kbd> for shortcuts
             </span>
+            <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
+              <Link href="/explore">Explore</Link>
+            </Button>
             <ThemeToggle />
 
             {/* Notification bell — only shown when wallet is connected */}
