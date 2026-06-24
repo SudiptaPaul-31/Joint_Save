@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
+import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js"
+
+const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
 
 export interface AppNotification {
   id: string
@@ -17,7 +20,7 @@ export function useNotifications(walletAddress: string | null) {
   const [loading, setLoading] = useState(false)
 
   const fetch = useCallback(async () => {
-    if (!walletAddress) { setNotifications([]); return }
+    if (!walletAddress || IS_E2E) { setNotifications([]); return }
     setLoading(true)
     const { data } = await supabase
       .from("notifications")
@@ -31,7 +34,7 @@ export function useNotifications(walletAddress: string | null) {
 
   useEffect(() => {
     fetch()
-    if (!walletAddress) return
+    if (!walletAddress || IS_E2E) return
 
     // Real-time: prepend new notifications as they arrive
     const channel = supabase
@@ -44,7 +47,7 @@ export function useNotifications(walletAddress: string | null) {
           table: "notifications",
           filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
         },
-        (payload: { new: AppNotification }) => {
+        (payload: RealtimePostgresInsertPayload<AppNotification>) => {
           setNotifications((prev) =>
             [payload.new as AppNotification, ...prev].slice(0, 10)
           )
@@ -56,7 +59,7 @@ export function useNotifications(walletAddress: string | null) {
   }, [walletAddress, fetch])
 
   const markAllRead = useCallback(async () => {
-    if (!walletAddress) return
+    if (!walletAddress || IS_E2E) return
     await supabase
       .from("notifications")
       .update({ read: true })
