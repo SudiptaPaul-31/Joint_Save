@@ -10,6 +10,7 @@ export interface NotificationPreferences {
   email_on_deposit: boolean
   email_on_round: boolean
   email_on_target: boolean
+  email_on_deposit_reminder: boolean
 }
 
 export interface UserProfile {
@@ -23,6 +24,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
   email_on_deposit: true,
   email_on_round: true,
   email_on_target: true,
+  email_on_deposit_reminder: true,
 }
 
 export function useUserProfile(walletAddress: string | null) {
