@@ -226,15 +226,21 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
       <FormProgress fields={progressFields} />
 
       <div className="space-y-1">
-        <FieldTooltip
-          htmlFor="name"
-          label="Group Name"
-          tooltip="A short, memorable name for your savings circle — e.g. 'Family Trip Fund'. Visible to all members."
-          required
-        />
+        <div className="flex items-center justify-between">
+          <FieldTooltip
+            htmlFor="name"
+            label="Group Name"
+            tooltip="A short, memorable name for your savings circle — e.g. 'Family Trip Fund'. Visible to all members."
+            required
+          />
+          <span className={`text-xs tabular-nums ${formData.name.length > 45 ? "text-destructive" : "text-muted-foreground"}`}>
+            {formData.name.length}/50
+          </span>
+        </div>
         <Input
           id="name"
           placeholder="e.g., Family Savings Circle"
+          maxLength={50}
           value={formData.name}
           onChange={(e) => {
             setFormData({ ...formData, name: e.target.value })
@@ -247,14 +253,20 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
       </div>
 
       <div className="space-y-1">
-        <FieldTooltip
-          htmlFor="description"
-          label="Description"
-          tooltip="Optional details about the group's purpose, rules, or goals. Helps members understand what they're joining."
-        />
+        <div className="flex items-center justify-between">
+          <FieldTooltip
+            htmlFor="description"
+            label="Description"
+            tooltip="Optional details about the group's purpose, rules, or goals. Helps members understand what they're joining."
+          />
+          <span className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}>
+            {formData.description.length}/300
+          </span>
+        </div>
         <Textarea
           id="description"
           placeholder="Describe the purpose of this savings group"
+          maxLength={300}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}

@@ -195,15 +195,21 @@ export function TargetForm() {
       <FormProgress fields={progressFields} />
 
       <div className="space-y-1">
-        <FieldTooltip
-          htmlFor="name"
-          label="Group Name"
-          tooltip="A descriptive name for your savings goal — e.g. 'Wedding Fund'. Visible to all members."
-          required
-        />
+        <div className="flex items-center justify-between">
+          <FieldTooltip
+            htmlFor="name"
+            label="Group Name"
+            tooltip="A descriptive name for your savings goal — e.g. 'Wedding Fund'. Visible to all members."
+            required
+          />
+          <span className={`text-xs tabular-nums ${formData.name.length > 45 ? "text-destructive" : "text-muted-foreground"}`}>
+            {formData.name.length}/50
+          </span>
+        </div>
         <Input
           id="name"
           placeholder="e.g., Wedding Fund"
+          maxLength={50}
           value={formData.name}
           onChange={(e) => {
             setFormData({ ...formData, name: e.target.value })
@@ -215,14 +221,20 @@ export function TargetForm() {
       </div>
 
       <div className="space-y-1">
-        <FieldTooltip
-          htmlFor="description"
-          label="Description"
-          tooltip="Optional context about the savings goal — what you're saving for, any rules, or milestones to reach."
-        />
+        <div className="flex items-center justify-between">
+          <FieldTooltip
+            htmlFor="description"
+            label="Description"
+            tooltip="Optional context about the savings goal — what you're saving for, any rules, or milestones to reach."
+          />
+          <span className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}>
+            {formData.description.length}/300
+          </span>
+        </div>
         <Textarea
           id="description"
           placeholder="Describe the savings goal"
+          maxLength={300}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
