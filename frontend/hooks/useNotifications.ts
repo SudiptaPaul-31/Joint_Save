@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js"
 
@@ -18,14 +18,25 @@ export interface AppNotification {
 export function useNotifications(walletAddress: string | null) {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(false)
+  const hasLoadedOnce = useRef(false)
+
+  useEffect(() => {
+    hasLoadedOnce.current = false
+  }, [walletAddress])
 
   const loadNotifications = useCallback(async () => {
     if (!walletAddress || IS_E2E) { setNotifications([]); return }
     setLoading(true)
+    if (!hasLoadedOnce.current) setInitialLoading(true)
     const res = await window.fetch(`/api/notifications?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`)
     const data = res.ok ? await res.json() : []
     setNotifications(data)
     setLoading(false)
+    if (!hasLoadedOnce.current) {
+      hasLoadedOnce.current = true
+      setInitialLoading(false)
+    }
   }, [walletAddress])
 
   useEffect(() => {
@@ -65,5 +76,5 @@ export function useNotifications(walletAddress: string | null) {
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  return { notifications, loading, unreadCount, markAllRead, refetch: loadNotifications }
+  return { notifications, loading, initialLoading, unreadCount, markAllRead, refetch: loadNotifications }
 }

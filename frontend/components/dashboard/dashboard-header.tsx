@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useRecentPools } from "@/hooks/useRecentPools"
 import { useNotifications } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/utils"
@@ -28,7 +29,7 @@ export function DashboardHeader() {
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
   const { recentPools } = useRecentPools(address)
-  const { notifications, unreadCount, markAllRead } = useNotifications(address)
+  const { notifications, initialLoading, unreadCount, markAllRead } = useNotifications(address)
 
   const truncatedAddress = address
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
@@ -92,7 +93,14 @@ export function DashboardHeader() {
                 <DropdownMenuContent align="end" className="w-80">
                   <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {notifications.length === 0 ? (
+                  {initialLoading ? (
+                    [0, 1, 2].map((i) => (
+                      <div key={i} className="flex flex-col gap-1.5 px-3 py-2.5">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    ))
+                  ) : notifications.length === 0 ? (
                     <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                       No notifications yet
                     </p>
