@@ -21,6 +21,7 @@ import {
   validateWithdrawalFee,
   findDuplicateAddresses,
 } from "@/lib/form-validation"
+import { MAX_POOL_MEMBERS } from "@/lib/constants"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -64,6 +65,7 @@ export function FlexibleForm() {
     return duplicateIndices.has(allMembersIndex) ? "Duplicate address — already in this pool's member list" : ""
   })
   const isCreating = step !== "idle"
+  const isMemberLimitReached = members.length >= MAX_POOL_MEMBERS
 
   const validateField = useCallback((name: keyof FieldErrors, value: string) => {
     let message = ""
@@ -82,7 +84,10 @@ export function FlexibleForm() {
     const n = [...members]; n[i] = v; setMembers(n)
   }
 
-  const addMember = () => { setMembers([...members, ""]) }
+  const addMember = () => {
+    if (isMemberLimitReached) return
+    setMembers([...members, ""])
+  }
   const removeMember = (i: number) => {
     setMembers(members.filter((_, idx) => idx !== i))
   }
@@ -318,10 +323,22 @@ export function FlexibleForm() {
             tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included."
             required
           />
-          <Button type="button" variant="outline" size="sm" onClick={addMember}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addMember}
+            disabled={isMemberLimitReached}
+            aria-describedby={isMemberLimitReached ? "flexible-member-limit" : undefined}
+          >
             <Plus className="h-4 w-4 mr-1" />Add Member
           </Button>
         </div>
+        {isMemberLimitReached && (
+          <p id="flexible-member-limit" className="text-xs text-muted-foreground">
+            Maximum of {MAX_POOL_MEMBERS} members reached
+          </p>
+        )}
 
         <div className="space-y-3">
           <div className="space-y-1">
