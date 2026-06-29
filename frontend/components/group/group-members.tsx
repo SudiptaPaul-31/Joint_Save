@@ -1,26 +1,22 @@
 "use client"
 
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Card } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { CheckCircle2, Clock, XCircle, AlertCircle, Award, Copy, Check } from "lucide-react"
+import { useState, useEffect } from "react"
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
+import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import {
-  CheckCircle2,
-  Clock,
-  XCircle,
-  AlertCircle,
-  Award,
-  Copy,
-  Check,
-} from "lucide-react";
-import { useState, useEffect } from "react";
-import { usePoolData } from "@/lib/data-layer/PoolDataProvider";
-import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions";
-import { RotationalPoolState, fetchReputation, type ReputationScore } from "@/hooks/useJointSaveContracts";
-import { useToast } from "@/hooks/use-toast";
-import { countPendingMembers, filterPendingMembers } from "@/lib/member-filters";
+  RotationalPoolState,
+  fetchReputation,
+  type ReputationScore,
+} from "@/hooks/useJointSaveContracts"
+import { useToast } from "@/hooks/use-toast"
+import { countPendingMembers, filterPendingMembers } from "@/lib/member-filters"
 
 interface Member {
   id: string
@@ -29,7 +25,6 @@ interface Member {
   status: "pending" | "paid" | "late"
   joined_at: string
 }
-
 
 interface GroupMembersProps {
   groupId: string
@@ -43,13 +38,9 @@ const statusAvatarClass: Record<Member["status"], string> = {
   paid: "bg-primary/10 text-primary",
   pending: "bg-yellow-500/10 text-yellow-800 dark:text-yellow-300",
   late: "bg-destructive/10 text-destructive",
-};
+}
 
-export function GroupMembers({
-  groupId,
-  contractAddress,
-  poolType,
-}: GroupMembersProps) {
+export function GroupMembers({ groupId, contractAddress, poolType }: GroupMembersProps) {
   // Prefer contract address as the cache key (already warming from GroupDetails
   // and GroupActivity on the same page). Fall back to DB id for pending pools.
   const cacheKey =
@@ -62,9 +53,9 @@ export function GroupMembers({
   const members: Member[] = data?.db?.pool_members ?? []
   const onchainState = data?.onchain
 
-  const [reputations, setReputations] = useState<Record<string, ReputationScore>>({});
-  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [reputations, setReputations] = useState<Record<string, ReputationScore>>({})
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
+  const [showPendingOnly, setShowPendingOnly] = useState(false)
 
   const handleCopyMemberAddress = async (address: string) => {
     try {
@@ -121,8 +112,8 @@ export function GroupMembers({
   const nextRecipient = getNextPayoutRecipient()
 
   // Client-side "pending only" view derived from data already on the page (no fetching).
-  const pendingCount = countPendingMembers(members);
-  const visibleMembers = showPendingOnly ? filterPendingMembers(members) : members;
+  const pendingCount = countPendingMembers(members)
+  const visibleMembers = showPendingOnly ? filterPendingMembers(members) : members
 
   if (isLoading && members.length === 0) {
     return (
@@ -154,7 +145,10 @@ export function GroupMembers({
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold">Members ({members.length})</h3>
           {members.length > 0 && (
-            <Badge variant="secondary" className="text-xs font-normal whitespace-nowrap tabular-nums">
+            <Badge
+              variant="secondary"
+              className="text-xs font-normal whitespace-nowrap tabular-nums"
+            >
               {pendingCount} pending
             </Badge>
           )}
@@ -178,13 +172,9 @@ export function GroupMembers({
         )}
       </div>
       {members.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          No members yet
-        </p>
+        <p className="text-sm text-muted-foreground text-center py-4">No members yet</p>
       ) : visibleMembers.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          Everyone has deposited
-        </p>
+        <p className="text-sm text-muted-foreground text-center py-4">Everyone has deposited</p>
       ) : (
         <div className="space-y-3">
           {visibleMembers.map((member) => {
@@ -241,13 +231,25 @@ export function GroupMembers({
                   {!isPendingPayout && (
                     <>
                       {member.status === "paid" && (
-                        <CheckCircle2 className="h-4 w-4 text-primary" role="img" aria-label="Paid" />
+                        <CheckCircle2
+                          className="h-4 w-4 text-primary"
+                          role="img"
+                          aria-label="Paid"
+                        />
                       )}
                       {member.status === "pending" && (
-                        <Clock className="h-4 w-4 text-yellow-700 dark:text-yellow-400" role="img" aria-label="Pending" />
+                        <Clock
+                          className="h-4 w-4 text-yellow-700 dark:text-yellow-400"
+                          role="img"
+                          aria-label="Pending"
+                        />
                       )}
                       {member.status === "late" && (
-                        <XCircle className="h-4 w-4 text-destructive" role="img" aria-label="Late" />
+                        <XCircle
+                          className="h-4 w-4 text-destructive"
+                          role="img"
+                          aria-label="Late"
+                        />
                       )}
                     </>
                   )}
